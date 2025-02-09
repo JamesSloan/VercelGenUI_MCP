@@ -1,5 +1,7 @@
 # Implementation Plan: MCP + Vercel AI SDK UI Integration
 
+When running commands in terminal, use ; not &&
+
 ## Phase 1: Project Setup and Dependencies
 1. Initialize Next.js project with TypeScript
    - Create new Next.js 14+ project
@@ -47,13 +49,18 @@
 
 ## Phase 4: Backend API Implementation
 1. Create API Routes
-   - Set up chat endpoint
-   - Implement streaming response handling
+   - Set up chat endpoint with streaming support
+   - Implement streaming response handling using Response.json() streams
+   - Add server-sent events (SSE) for real-time updates
+   - Configure proper CORS headers for streaming
    - Add MCP integration middleware
 
-2. Implement LLM Integration
-   - Configure OpenAI client
-   - Set up streaming text processing
+2. Implement LLM Integration with Streaming
+   - Configure OpenAI client with streaming capabilities
+   - Set up chunk-by-chunk text processing
+   - Implement proper stream closing and error handling
+   - Add backpressure handling for large responses
+   - Configure timeout and retry mechanisms
    - Add tool calling capabilities
 
 3. Add Context Processing
