@@ -52,3 +52,55 @@ After completing this phase, we'll move on to implementing core MCP features inc
 - Tool definitions
 - Tool execution handlers
 - Enhanced error handling and logging
+
+# Phase 2, Step 2: Implement Core MCP Features
+
+## Current Task
+Implementing core MCP features including context enrichment, tool definitions, and LLM integration.
+
+## Steps
+
+1. Create Context Enrichment Middleware
+   - Implement request context enrichment
+   - Add environment variable context
+   - Create user session context
+   - Add request metadata enrichment
+
+2. Set Up Tool Definitions
+   - Implement weather tool (already started)
+   - Add data fetching tool
+   - Create file operations tool
+   - Set up tool registration system
+
+3. Implement Tool Execution Handlers
+   - Create tool execution pipeline
+   - Add parameter validation
+   - Implement error handling
+   - Add execution logging
+
+4. Add LLM Integration
+   - Create LLM middleware
+   - Implement tool calling parser
+   - Add streaming response handling
+   - Set up OpenAI integration
+   - Add tool response formatting
+
+5. Testing Setup
+   - Add middleware tests
+   - Create tool execution tests
+   - Implement LLM integration tests
+   - Add streaming response tests
+   - Set up end-to-end tool execution tests
+
+## Success Criteria
+- [ ] Context enrichment middleware works correctly
+- [ ] Tool definitions are properly registered
+- [ ] Tool execution pipeline handles requests correctly
+- [ ] LLM integration successfully processes tool calls
+- [ ] All tests pass successfully
+
+## Next Steps
+After completing this phase, we'll move on to:
+- Creating MCP Client Utilities
+- Implementing the frontend UI components
+- Setting up the chat interface
