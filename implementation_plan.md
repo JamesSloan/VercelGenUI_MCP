@@ -1,6 +1,11 @@
 # Implementation Plan: MCP + Vercel AI SDK UI Integration
 
-When running commands in terminal, use ; not &&
+##CursorNotes: 
+1. When running commands in terminal, use ; not &&
+2. This is a Next.js project, so use Next.js specific commands and conventions.
+3. This is a Vercel project, so use Vercel specific commands and conventions.
+4. This is a Vercel AI SDK project, so use Vercel AI SDK specific commands and conventions.
+5. This is a Windows machine, so use Windows specific commands and conventions (not 'cat') - Windows PowerShell conventions.
 
 ## Phase 1: Project Setup and Dependencies
 1. Initialize Next.js project with TypeScript
@@ -14,7 +19,7 @@ When running commands in terminal, use ; not &&
    ```
 
 ## Phase 2: MCP Server Implementation
-1. Create MCP Server Structure
+1. ✅ Create MCP Server Structure
    - Set up MCP server directory structure
    - Implement basic MCP server configuration
    - Define resource and tool interfaces
