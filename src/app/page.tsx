@@ -7,6 +7,10 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  toolCalls?: {
+    name: string;
+    args: string;
+  }[];
 }
 
 export default function Home() {
@@ -47,11 +51,12 @@ export default function Home() {
 
       const data = await response.json();
       
-      // Add AI message
+      // Add AI message with tool calls if present
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.content
+        content: data.content,
+        toolCalls: data.toolCalls
       }]);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('An error occurred'));
@@ -90,21 +95,38 @@ export default function Home() {
                 } shadow-sm`}
               >
                 {message.role === 'assistant' ? (
-                  <ReactMarkdown
-                    className="prose prose-sm max-w-none"
-                    components={{
-                      pre: ({ node, ...props }) => (
-                        <div className="overflow-auto my-2 p-2 bg-gray-800 rounded-md">
-                          <pre {...props} />
-                        </div>
-                      ),
-                      code: ({ node, ...props }) => (
-                        <code className="bg-gray-800 text-gray-100 p-1 rounded-sm" {...props} />
-                      ),
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
+                  <>
+                    <ReactMarkdown
+                      className="prose prose-sm max-w-none"
+                      components={{
+                        pre: ({ node, ...props }) => (
+                          <div className="overflow-auto my-2 p-2 bg-gray-800 rounded-md">
+                            <pre {...props} />
+                          </div>
+                        ),
+                        code: ({ node, ...props }) => (
+                          <code className="bg-gray-800 text-gray-100 p-1 rounded-sm" {...props} />
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                    {message.toolCalls && message.toolCalls.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500 border-t pt-2">
+                        <div className="font-medium">Tools Used:</div>
+                        {message.toolCalls.map((tool, idx) => (
+                          <div key={idx} className="flex items-center gap-2 mt-1">
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              {tool.name}
+                            </span>
+                            <span className="text-gray-600 truncate">
+                              args: {tool.args}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   message.content
                 )}

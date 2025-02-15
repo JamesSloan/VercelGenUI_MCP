@@ -112,6 +112,10 @@ export async function POST(request: Request) {
       return new Response(
         JSON.stringify({
           content: followUp.choices[0].message.content,
+          toolCalls: response.tool_calls?.map(tc => ({
+            name: tc.function.name,
+            args: tc.function.arguments
+          }))
         }),
         {
           headers: {
@@ -124,6 +128,10 @@ export async function POST(request: Request) {
     return new Response(
       JSON.stringify({
         content: response.content,
+        toolCalls: response.tool_calls?.map(tc => ({
+          name: tc.function.name,
+          args: tc.function.arguments
+        }))
       }),
       {
         headers: {
