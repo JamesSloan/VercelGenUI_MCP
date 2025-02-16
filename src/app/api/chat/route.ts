@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { MCPServer } from '../../../lib/mcp/server';
 import { weatherTool } from '../../../lib/mcp/tools/weather';
 import { searchTool } from '../../../lib/mcp/tools/search';
+import { systemTool } from '../../../lib/mcp/tools/system';
 
 // Create an OpenAI API client
 const openai = new OpenAI({
@@ -11,7 +12,7 @@ const openai = new OpenAI({
 // Initialize MCP Server
 const mcpServer = new MCPServer({ debug: true });
 mcpServer.use(async (context, next) => {
-  context.state.set('tools', [weatherTool, searchTool]);
+  context.state.set('tools', [weatherTool, searchTool, systemTool]);
   await next();
 });
 
@@ -88,6 +89,24 @@ export async function POST(request: Request) {
               required: ['query']
             }
           }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'system_info',
+            description: 'Get time and location information',
+            parameters: {
+              type: 'object',
+              properties: {
+                info_type: {
+                  type: 'string',
+                  enum: ['time', 'location', 'all'],
+                  description: 'Type of information to retrieve',
+                  default: 'all'
+                }
+              }
+            }
+          }
         }
       ],
       tool_choice: 'auto'
@@ -116,6 +135,20 @@ export async function POST(request: Request) {
           if (toolCall.function.name === 'google_search') {
             const args = JSON.parse(toolCall.function.arguments);
             const result = await searchTool.execute(
+              {
+                request: args,
+                response: {},
+                state: new Map(),
+                config: mcpServer['config'],
+                logger: mcpServer['logger']
+              },
+              args
+            );
+            return { toolCall, result };
+          }
+          if (toolCall.function.name === 'system_info') {
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await systemTool.execute(
               {
                 request: args,
                 response: {},
