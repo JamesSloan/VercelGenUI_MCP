@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { MCPServer } from '../../../lib/mcp/server';
 import { weatherTool } from '../../../lib/mcp/tools/weather';
+import { searchTool } from '../../../lib/mcp/tools/search';
 
 // Create an OpenAI API client
 const openai = new OpenAI({
@@ -10,7 +11,7 @@ const openai = new OpenAI({
 // Initialize MCP Server
 const mcpServer = new MCPServer({ debug: true });
 mcpServer.use(async (context, next) => {
-  context.state.set('tools', [weatherTool]);
+  context.state.set('tools', [weatherTool, searchTool]);
   await next();
 });
 
@@ -43,28 +44,52 @@ export async function POST(request: Request) {
           content: msg.content,
         }))
       ],
-      tools: [{
-        type: 'function',
-        function: {
-          name: 'weather',
-          description: 'Get weather information for a location',
-          parameters: {
-            type: 'object',
-            properties: {
-              location: {
-                type: 'string',
-                description: 'Location to get weather for (city name or coordinates)'
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'weather',
+            description: 'Get weather information for a location',
+            parameters: {
+              type: 'object',
+              properties: {
+                location: {
+                  type: 'string',
+                  description: 'Location to get weather for (city name or coordinates)'
+                },
+                units: {
+                  type: 'string',
+                  enum: ['celsius', 'fahrenheit'],
+                  description: 'Units for temperature'
+                }
               },
-              units: {
-                type: 'string',
-                enum: ['celsius', 'fahrenheit'],
-                description: 'Units for temperature'
-              }
-            },
-            required: ['location']
+              required: ['location']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'google_search',
+            description: 'Search the web using Google Custom Search API',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query to execute'
+                },
+                num_results: {
+                  type: 'number',
+                  description: 'Number of results to return (max 10)',
+                  default: 3
+                }
+              },
+              required: ['query']
+            }
           }
         }
-      }],
+      ],
       tool_choice: 'auto'
     });
 
@@ -78,6 +103,20 @@ export async function POST(request: Request) {
             const args = JSON.parse(toolCall.function.arguments);
             const result = await weatherTool.execute(
               { 
+                request: args,
+                response: {},
+                state: new Map(),
+                config: mcpServer['config'],
+                logger: mcpServer['logger']
+              },
+              args
+            );
+            return { toolCall, result };
+          }
+          if (toolCall.function.name === 'google_search') {
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await searchTool.execute(
+              {
                 request: args,
                 response: {},
                 state: new Map(),

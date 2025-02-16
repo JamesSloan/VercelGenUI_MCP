@@ -12,6 +12,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@googleapis/customsearch": "^3.2.0",
     "ai": "^4.1.40",
     "next": "^14.2.24",
     "openai": "^4.24.1",
