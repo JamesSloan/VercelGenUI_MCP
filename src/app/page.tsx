@@ -1,65 +1,95 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { useState } from 'react';
+import { Message, continueConversation } from './actions';
+import { readStreamableValue } from 'ai/rsc';
 
-interface Message {
+// Allow streaming responses up to 30 seconds
+export const maxDuration = 30;
+
+// Define a type for our conversation messages that includes required id
+type ChatMessage = {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant';
   content: string;
-  toolCalls?: {
-    name: string;
-    args: string;
-  }[];
-}
+};
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [conversation, setConversation] = useState<Message[]>([]);
+  const [input, setInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!input.trim() || isLoading) return;
 
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim()
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-        }),
-      });
+      setIsLoading(true);
+      console.log('Client: Sending message:', input);
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
+      // Add user message to conversation immediately
+      const userMessage: Message = { role: 'user', content: input.trim() };
+      const newConversation = [...conversation, userMessage];
+      setConversation(newConversation);
+      setInput('');
+
+      // Get the response
+      console.log('Client: Calling continueConversation');
+      const { messages, newMessage } = await continueConversation(newConversation);
+      console.log('Client: Got response from server');
+
+      if (!newMessage) {
+        throw new Error('No message received from server');
       }
 
-      const data = await response.json();
-      
-      // Add AI message with tool calls if present
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
+      // Add empty assistant message to show loading
+      const loadingMessage: Message = { role: 'assistant', content: '' };
+      setConversation([...newConversation, loadingMessage]);
+
+      let accumulatedContent = '';
+      console.log('Client: Starting to read stream');
+
+      try {
+        for await (const chunk of readStreamableValue(newMessage)) {
+          console.log('Client: Received chunk:', chunk);
+          if (chunk) {
+            accumulatedContent += chunk;
+            console.log('Client: Accumulated content:', accumulatedContent);
+            
+            // Update the assistant's message with accumulated content
+            setConversation(currentConversation => {
+              const updatedConversation = [...currentConversation];
+              // Find and update the last assistant message
+              const lastAssistantIndex = updatedConversation.findIndex(
+                msg => msg.role === 'assistant'
+              );
+              if (lastAssistantIndex !== -1) {
+                updatedConversation[lastAssistantIndex] = {
+                  role: 'assistant',
+                  content: accumulatedContent
+                };
+              }
+              return updatedConversation;
+            });
+          }
+        }
+        console.log('Client: Finished reading stream');
+      } catch (streamError) {
+        console.error('Client: Error reading stream:', streamError);
+        throw streamError;
+      }
+
+      if (!accumulatedContent) {
+        throw new Error('No content received from stream');
+      }
+    } catch (error) {
+      console.error('Client: Error:', error);
+      const errorMessage: Message = {
         role: 'assistant',
-        content: data.content,
-        toolCalls: data.toolCalls
-      }]);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('An error occurred'));
+        content: error instanceof Error 
+          ? `Error: ${error.message}` 
+          : 'An unknown error occurred'
+      };
+      setConversation(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -74,15 +104,15 @@ export default function Home() {
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 rounded-lg border border-gray-200 bg-white">
-          {messages.length === 0 && (
+          {conversation.length === 0 && (
             <div className="text-center text-gray-500 py-20">
               Start a conversation by sending a message below.
             </div>
           )}
           
-          {messages.map((message) => (
+          {conversation.map((message, index) => (
             <div
-              key={message.id}
+              key={index}
               className={`flex ${
                 message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
@@ -94,83 +124,44 @@ export default function Home() {
                     : 'bg-gray-100 text-gray-800'
                 } shadow-sm`}
               >
-                {message.role === 'assistant' ? (
-                  <>
-                    <ReactMarkdown
-                      className="prose prose-sm max-w-none"
-                      components={{
-                        pre: ({ node, ...props }) => (
-                          <div className="overflow-auto my-2 p-2 bg-gray-800 rounded-md">
-                            <pre {...props} />
-                          </div>
-                        ),
-                        code: ({ node, ...props }) => (
-                          <code className="bg-gray-800 text-gray-100 p-1 rounded-sm" {...props} />
-                        ),
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                    {message.toolCalls && message.toolCalls.length > 0 && (
-                      <div className="mt-2 text-xs text-gray-500 border-t pt-2">
-                        <div className="font-medium">Tools Used:</div>
-                        {message.toolCalls.map((tool, idx) => (
-                          <div key={idx} className="flex items-center gap-2 mt-1">
-                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                              {tool.name}
-                            </span>
-                            <span className="text-gray-600 truncate">
-                              args: {tool.args}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  message.content
-                )}
+                {message.content || (message.role === 'assistant' && isLoading && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
+                  </div>
+                ))}
               </div>
             </div>
           ))}
-          
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-lg px-4 py-2 max-w-[85%] shadow-sm">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="text-red-500 text-sm mb-4 px-4">
-            Error: {error.message}
-          </div>
-        )}
-
         {/* Input Form */}
-        <form onSubmit={handleSubmit} className="flex gap-2 p-4 border-t">
+        <div className="flex gap-2 p-4 border-t">
           <input
+            type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={event => {
+              setInput(event.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
             placeholder="Type a message..."
             className="flex-1 rounded-lg border border-gray-300 p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={isLoading}
           />
           <button
-            type="submit"
+            onClick={handleSubmit}
             disabled={isLoading || !input.trim()}
             className="bg-blue-500 text-white px-6 py-4 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Thinking...' : 'Send'}
+            {isLoading ? 'Thinking...' : 'Send Message'}
           </button>
-        </form>
+        </div>
       </div>
     </main>
   );
