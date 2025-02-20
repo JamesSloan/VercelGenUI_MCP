@@ -1,32 +1,16 @@
 import { customsearch } from '@googleapis/customsearch';
-import { ToolDefinition, ToolResult } from '../../../types/tools';
-import { MCPContext } from '../server';
+import { tool } from 'ai';
+import { z } from 'zod';
 
-const searchClient = customsearch('v1');
-
-export const searchTool: ToolDefinition = {
-  name: 'google_search',
+export const searchTool = tool({
   description: 'Search the web using Google Custom Search API',
-  version: '1.0.0',
-  parameters: [
-    {
-      name: 'query',
-      type: 'string',
-      description: 'The search query to execute',
-      required: true,
-    },
-    {
-      name: 'num_results',
-      type: 'number',
-      description: 'Number of results to return (max 10)',
-      required: false,
-      default: 3,
-    }
-  ],
-  execute: async (context: MCPContext, params: Record<string, any>): Promise<ToolResult> => {
+  parameters: z.object({
+    query: z.string().describe('The search query to execute'),
+    num_results: z.number().min(1).max(10).optional().default(3)
+      .describe('Number of results to return (max 10)')
+  }),
+  execute: async ({ query, num_results = 3 }) => {
     try {
-      context.logger.logDebug('Executing Google search with params:', params);
-      
       const apiKey = process.env.GOOGLE_API_KEY;
       const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
 
@@ -34,13 +18,12 @@ export const searchTool: ToolDefinition = {
         throw new Error('Google API credentials not configured');
       }
 
-      const numResults = Math.min(Math.max(1, params.num_results || 3), 10);
-
+      const searchClient = customsearch('v1');
       const response = await searchClient.cse.list({
         auth: apiKey,
         cx: searchEngineId,
-        q: params.query,
-        num: numResults
+        q: query,
+        num: Math.min(Math.max(1, num_results), 10)
       });
 
       if (!response.data.items) {
@@ -50,7 +33,8 @@ export const searchTool: ToolDefinition = {
             results: [],
             total: 0,
             message: 'No results found'
-          }
+          },
+          message: 'No search results found.'
         };
       }
 
@@ -61,25 +45,28 @@ export const searchTool: ToolDefinition = {
         displayLink: item.displayLink
       }));
 
+      const formattedResults = results.map((result, index) => 
+        `${index + 1}. ${result.title}\n   ${result.snippet}\n   Link: ${result.link}`
+      ).join('\n\n');
+
       return {
         success: true,
         data: {
           results,
           total: response.data.searchInformation?.totalResults || results.length,
-          query: params.query
-        }
+          query
+        },
+        message: `Here are the search results for "${query}":\n\n${formattedResults}`
       };
 
     } catch (error) {
-      context.logger.error('Google search error:', error);
       return {
         success: false,
         error: {
           code: 'SEARCH_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error occurred',
-          details: error
+          message: error instanceof Error ? error.message : 'Unknown error occurred'
         }
       };
     }
-  },
-}; 
+  }
+}); 
