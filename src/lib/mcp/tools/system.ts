@@ -1,5 +1,31 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { ToolResult } from './ToolResult';
+
+export interface SystemData {
+  time: {
+    current: string;
+    timestamp: number;
+    timezone: string;
+    localTime: string;
+  };
+  location: {
+    timezone: string;
+  };
+}
+
+export type SystemResult = ToolResult<SystemData>;
+
+const formatSystemResult = (data: SystemData, info_type: 'time' | 'location' | 'all'): string => {
+  const parts = [];
+  if (info_type === 'all' || info_type === 'time') {
+    parts.push(`**Current Time**: ${data.time.localTime}`);
+  }
+  if (info_type === 'all' || info_type === 'location') {
+    parts.push(`**Timezone**: ${data.location.timezone}`);
+  }
+  return parts.join('\n');
+};
 
 export const systemTool = tool({
   description: 'Get time and location information',
@@ -7,48 +33,35 @@ export const systemTool = tool({
     info_type: z.enum(['time', 'location', 'all']).optional().default('all')
       .describe('Type of information to retrieve (time, location, all)')
   }),
-  execute: async ({ info_type = 'all' }) => {
+  execute: async ({ info_type = 'all' }): Promise<SystemResult> => {
     try {
-      const result: Record<string, any> = {};
-
-      if (info_type === 'all' || info_type === 'time') {
-        const now = new Date();
-        result.time = {
+      const now = new Date();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      const data: SystemData = {
+        time: {
           current: now.toISOString(),
           timestamp: now.getTime(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone,
           localTime: now.toLocaleString(),
-        };
-      }
-
-      if (info_type === 'all' || info_type === 'location') {
-        result.location = {
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        };
-      }
-
-      // Format a nice response message
-      const parts = [];
-      if (result.time) {
-        parts.push(`Current time: ${result.time.localTime} (${result.time.timezone})`);
-      }
-      if (result.location) {
-        parts.push(`System timezone: ${result.location.timezone}`);
-      }
+        },
+        location: {
+          timezone,
+        }
+      };
 
       return {
         success: true,
-        data: result,
-        message: parts.join('\n')
+        data,
+        message: formatSystemResult(data, info_type)
       };
 
     } catch (error) {
       return {
         success: false,
-        error: {
-          code: 'TIME_LOCATION_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error occurred'
-        }
+        data: {} as SystemData,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: 'Failed to fetch system information'
       };
     }
   }

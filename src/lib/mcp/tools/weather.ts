@@ -1,6 +1,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { MCPContext } from '../server';
+import { ToolResult } from './ToolResult';
+
+export interface WeatherData {
+  location: string;
+  temperature: number;
+  units: string;
+  conditions: string;
+  timestamp: string;
+}
+
+export type WeatherResult = ToolResult<WeatherData>;
+
+const formatWeatherResult = (data: WeatherData): string => {
+  return `**Current Weather**: ${data.temperature}°${data.units} and ${data.conditions} in ${data.location}.`;
+};
 
 export const weatherTool = tool({
   description: 'Get weather information for a location',
@@ -9,29 +23,29 @@ export const weatherTool = tool({
     units: z.enum(['celsius', 'fahrenheit']).optional().default('celsius')
       .describe('Units for temperature (celsius or fahrenheit)')
   }),
-  execute: async ({ location, units }) => {
+  execute: async ({ location, units = 'celsius' }): Promise<WeatherResult> => {
     try {
       // This is a mock implementation
-      const weatherData = {
+      const data: WeatherData = {
         location,
         temperature: 22,
-        units: units || 'celsius',
+        units,
         conditions: 'sunny',
         timestamp: new Date().toISOString(),
       };
 
       return {
         success: true,
-        data: weatherData,
-        message: `Current weather in ${location}: ${weatherData.temperature}°${units} and ${weatherData.conditions}`
+        data,
+        message: formatWeatherResult(data)
       };
+
     } catch (error) {
       return {
         success: false,
-        error: {
-          code: 'WEATHER_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error occurred',
-        }
+        data: {} as WeatherData,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: 'Failed to fetch weather data'
       };
     }
   }

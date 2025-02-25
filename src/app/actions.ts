@@ -41,16 +41,19 @@ You don't have to use the tools if you don't need to.`;
 export async function continueConversation(history: Message[]) {
   'use server';
   
-  console.log('Server: Starting conversation with history:', JSON.stringify(history, null, 2));
   const stream = createStreamableValue();
 
   try {
     let accumulatedContent = '';
     let currentToolCalls: Message['toolCalls'] = [];
-    let steps: Array<{
-      text: string;
-      toolCalls?: Array<{ toolName: string; args: any }>;
-      toolResults?: Array<any>;
+    let currentSteps: Array<{
+      type: 'tool' | 'llm';
+      name: string;
+      args?: string;
+      result?: string;
+      summary?: string;
+      timestamp?: number;
+      status?: 'pending' | 'complete' | 'error';
     }> = [];
 
     const { textStream } = await streamText({
@@ -58,69 +61,123 @@ export async function continueConversation(history: Message[]) {
       messages: history,
       tools,
       system: generateSystemPrompt(tools),
-      maxSteps: 5, // Allow multiple tool calls if needed
+      maxSteps: 5,
       onStepFinish(step) {
-        console.log('Step finished:', step);
-        steps.push(step);
+        //console.log('Step finished:', step);
 
-        // Update tool calls if any
+        // If we have tool calls, send them to the client
         if (step.toolCalls?.length) {
-          currentToolCalls = step.toolCalls.map(call => ({
-            name: call.toolName,
-            args: JSON.stringify(call.args)
+          step.toolCalls.forEach(call => {
+            const toolStep = {
+              type: 'tool' as const,
+              name: call.toolName,
+              args: JSON.stringify(call.args),
+              timestamp: Date.now(),
+              status: 'pending' as const
+            };
+            currentSteps.push(toolStep);
+            stream.update(JSON.stringify({
+              type: 'tool-step',
+              step: toolStep
+            }));
+          });
+        }
+
+        // If we have tool results, send them to the client
+        if (step.toolResults?.length) {
+          step.toolResults.forEach((result, index) => {
+            if (step.toolCalls?.[index]) {
+              const toolResult = {
+                type: 'tool' as const,
+                name: step.toolCalls[index].toolName,
+                args: JSON.stringify(step.toolCalls[index].args),
+                result: JSON.stringify(result.result),
+                summary: result.result?.message,
+                timestamp: Date.now(),
+                status: 'complete' as const
+              };
+              // Update existing step or add new one
+              const existingIndex = currentSteps.findIndex(s => 
+                s.type === 'tool' && 
+                s.name === toolResult.name && 
+                s.args === toolResult.args
+              );
+              if (existingIndex !== -1) {
+                currentSteps[existingIndex] = toolResult;
+              } else {
+                currentSteps.push(toolResult);
+              }
+              stream.update(JSON.stringify({
+                type: 'tool-step',
+                step: toolResult
+              }));
+            }
+          });
+        }
+
+        // Send LLM text as a step if it exists
+        if (step.text?.trim()) {
+          const llmStep = {
+            type: 'llm' as const,
+            name: 'LLM',
+            result: step.text,
+            timestamp: Date.now(),
+            status: 'complete' as const
+          };
+          currentSteps.push(llmStep);
+          stream.update(JSON.stringify({
+            type: 'tool-step',
+            step: llmStep
           }));
         }
 
-        // Format content with tool results if any
-        let stepContent = step.text || '';
+        // Send content update
+        let stepContent = '';
+        if (step.text?.trim()) {
+          stepContent = step.text;
+        }
         if (step.toolResults?.length) {
-          stepContent += '\n' + step.toolResults
-            .map(result => result.result?.message || JSON.stringify(result))
+          stepContent = step.toolResults
+            .map(result => result.result?.message)
+            .filter(Boolean)
             .join('\n');
         }
         
-        accumulatedContent = steps
-          .map(s => {
-            let content = s.text || '';
-            if (s.toolResults?.length) {
-              content += '\n' + s.toolResults
-                .map(result => result.result?.message || JSON.stringify(result))
-                .join('\n');
-            }
-            return content;
-          })
-          .join('\n')
-          .trim();
-
-        // Update stream with current state
-        stream.update(JSON.stringify({ 
-          content: accumulatedContent,
-          toolCalls: currentToolCalls
-        }));
+        if (stepContent) {
+          const contentUpdate = { 
+            content: stepContent,
+            isToolResponse: step.toolResults?.length > 0,
+            type: 'content-update',
+            steps: currentSteps
+          };
+          console.log('Sending content update:', contentUpdate);
+          stream.update(JSON.stringify(contentUpdate));
+        }
       }
     });
 
     // Handle text stream for intermediate updates
     for await (const chunk of textStream) {
-      if (chunk) {
-        // Only update with new chunks if we have no steps yet
-        if (steps.length === 0) {
-          accumulatedContent += chunk;
-          stream.update(JSON.stringify({ 
-            content: accumulatedContent,
-            toolCalls: currentToolCalls
-          }));
-        }
+      if (chunk && currentSteps.length === 0) {
+        stream.update(JSON.stringify({ 
+          content: chunk,
+          steps: currentSteps,
+          type: 'content-update'
+        }));
       }
     }
 
-    if (!accumulatedContent.trim()) {
-      throw new Error('No content received from stream');
-    }
+    // Send final update with all steps
+    stream.update(JSON.stringify({
+      type: 'content-update',
+      content: accumulatedContent,
+      steps: currentSteps,
+      isFinal: true
+    }));
 
     stream.done();
   } catch (error) {
-    console.error('Server: Error in conversation:', error);
+    console.error('Error in conversation:', error);
     stream.update(JSON.stringify({ 
       content: error instanceof Error ? error.message : 'An error occurred while processing your request.'
     }));
