@@ -87,11 +87,17 @@ export async function continueConversation(history: Message[]) {
         if (step.toolResults?.length) {
           step.toolResults.forEach((result, index) => {
             if (step.toolCalls?.[index]) {
+              // For HTML content, we need to preserve it without double-escaping
+              const resultValue = result.result;
+              const resultJson = typeof resultValue === 'object' ? 
+                JSON.stringify(resultValue) : 
+                String(resultValue);
+              
               const toolResult = {
                 type: 'tool' as const,
                 name: step.toolCalls[index].toolName,
                 args: JSON.stringify(step.toolCalls[index].args),
-                result: JSON.stringify(result.result),
+                result: resultJson,
                 summary: result.result?.message,
                 timestamp: Date.now(),
                 status: 'complete' as const
@@ -137,6 +143,7 @@ export async function continueConversation(history: Message[]) {
           stepContent = step.text;
         }
         if (step.toolResults?.length) {
+          // Directly use the message property which may contain HTML
           stepContent = step.toolResults
             .map(result => result.result?.message)
             .filter(Boolean)
@@ -161,6 +168,8 @@ export async function continueConversation(history: Message[]) {
     // Handle text stream for intermediate updates
     for await (const chunk of textStream) {
       if (chunk && currentSteps.length === 0) {
+        // TODO: Improve streaming responses by sending incremental updates
+        // This would show typing effect for better user experience
         stream.update(JSON.stringify({ 
           content: chunk,
           steps: currentSteps,
@@ -174,6 +183,8 @@ export async function continueConversation(history: Message[]) {
     const finalLlmStep = currentSteps.find(step => step.type === 'llm');
     const finalContent = finalLlmStep?.result || accumulatedContent;
     
+    // TODO: Consider formatting the final response as HTML directly from the server
+    // This would allow for richer formatting and avoid client-side markdown conversion
     stream.update(JSON.stringify({
       type: 'content-update',
       content: finalContent,

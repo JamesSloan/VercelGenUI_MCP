@@ -13,7 +13,15 @@ export interface WeatherData {
 export type WeatherResult = ToolResult<WeatherData>;
 
 const formatWeatherResult = (data: WeatherData): string => {
-  return `**Current Weather**: ${data.temperature}°${data.units} and ${data.conditions} in ${data.location}.`;
+  // Format weather result as HTML for better display
+  return `<div class="weather-result p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+    <div class="font-medium text-lg mb-1">Weather in ${data.location}</div>
+    <div class="flex items-center">
+      <span class="text-2xl font-bold mr-2">${data.temperature}°${data.units === 'celsius' ? 'C' : 'F'}</span>
+      <span class="text-blue-700 capitalize">${data.conditions}</span>
+    </div>
+    <div class="text-xs text-gray-500 mt-1">Updated: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+  </div>`;
 };
 
 export const weatherTool = tool({

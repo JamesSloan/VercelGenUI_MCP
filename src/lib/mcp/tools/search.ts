@@ -17,11 +17,19 @@ const formatSearchResult = (data: SearchData, query: string): string => {
     return `No results found for "${query}"`;
   }
   
+  // Format results as HTML for better display
   const formattedResults = data.map((item, index) => 
-    `${index + 1}. ${item.title}\n${item.snippet}${item.link ? `\nLink: ${item.link}` : ''}`
-  ).join('\n\n');
+    `<div class="search-result p-2 mb-2 bg-white rounded-md border border-gray-100">
+      <div class="font-medium">${index + 1}. ${item.title}</div>
+      <div class="text-sm">${item.snippet}</div>
+      ${item.link ? `<a href="${item.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">${item.link}</a>` : ''}
+    </div>`
+  ).join('');
   
-  return `Found ${data.length} results for "${query}":\n\n${formattedResults}`;
+  return `<div class="search-results">
+    <div class="font-medium mb-2">Found ${data.length} results for "${query}":</div>
+    ${formattedResults}
+  </div>`;
 };
 
 export const searchTool = tool({

@@ -38,6 +38,15 @@ const ThinkingIndicator = () => (
   </div>
 );
 
+// TODO: Add a streaming response indicator that shows when content is being streamed
+const StreamingIndicator = () => (
+  <div className="inline-flex items-center space-x-1 text-gray-500 ml-1">
+    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse delay-150" />
+    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse delay-300" />
+  </div>
+);
+
 const StepIcon = ({ type }: { type: StepCall['type'] }) => {
   if (type === 'llm') {
     return (
@@ -97,6 +106,43 @@ const formatMarkdown = (content: string) => {
   return (
     <div dangerouslySetInnerHTML={{ __html: formattedContent }} />
   );
+};
+
+// Helper function to render content that might be HTML or plain text
+const renderContent = (content: string) => {
+  if (!content) return null;
+  
+  // Try to parse as JSON first (for tool results that might be stringified)
+  try {
+    if (content.startsWith('{') && content.endsWith('}')) {
+      const parsed = JSON.parse(content);
+      // If it has a message property that looks like HTML, render that
+      if (parsed.message && typeof parsed.message === 'string' && parsed.message.includes('<')) {
+        return <div dangerouslySetInnerHTML={{ __html: parsed.message }} />;
+      }
+      // Otherwise just stringify it nicely
+      return <pre className="text-xs overflow-auto">{JSON.stringify(parsed, null, 2)}</pre>;
+    }
+  } catch (e) {
+    // Not valid JSON, continue with other checks
+  }
+  
+  // Check if content appears to be HTML
+  const containsHtml = /<[a-z][\s\S]*>/i.test(content);
+  
+  // If it contains HTML, render it directly
+  if (containsHtml) {
+    return <div dangerouslySetInnerHTML={{ __html: content }} className="html-content" />;
+  }
+  
+  // If it contains markdown-style formatting, use the formatter
+  if (content.includes('**') || content.includes('|') || 
+      content.includes('Found') || content.includes('[')) {
+    return formatMarkdown(content);
+  }
+  
+  // Otherwise, render as plain text
+  return <div>{content}</div>;
 };
 
 const StepsList = ({ message }: { message: EnhancedMessage }) => {
@@ -179,14 +225,23 @@ const StepsList = ({ message }: { message: EnhancedMessage }) => {
                 )}
                 {step.summary && (
                   <div className="text-sm text-gray-700 mt-2 bg-white p-2 rounded border border-gray-100">
-                    {typeof step.summary === 'string' && step.summary.includes('**') 
-                      ? formatMarkdown(step.summary)
+                    {typeof step.summary === 'string' 
+                      ? renderContent(step.summary)
                       : step.summary}
                   </div>
                 )}
                 {step.result && !step.summary && (
-                  <div className="text-xs text-gray-600 mt-1 font-mono bg-gray-50 p-2 rounded overflow-auto">
-                    {typeof step.result === 'string' ? step.result : JSON.stringify(step.result, null, 2)}
+                  <div className={`text-xs text-gray-600 mt-1 p-2 rounded overflow-auto ${
+                    typeof step.result === 'string' && 
+                    (step.result.includes('<div') || step.result.includes('<span'))
+                      ? 'bg-white' 
+                      : 'bg-gray-50 font-mono'
+                  }`}>
+                    {typeof step.result === 'string' 
+                      ? (step.result.startsWith('{') && step.result.endsWith('}')
+                          ? step.result 
+                          : renderContent(step.result))
+                      : JSON.stringify(step.result, null, 2)}
                   </div>
                 )}
               </div>
@@ -203,6 +258,7 @@ export const ResponseContainer: React.FC<ResponseContainerProps> = ({
   isLoading
 }) => {
   const isThinking = isLoading && (!message.content || message.state === 'thinking');
+  const isStreaming = isLoading && message.content && message.state === 'intermediate';
   
   // Filter out LLM steps from the steps display
   // TODO: Add a proper LLM call tool in the future
@@ -213,6 +269,7 @@ export const ResponseContainer: React.FC<ResponseContainerProps> = ({
     messageId: message.id,
     isLoading,
     isThinking,
+    isStreaming,
     showSteps,
     stepsLength: filteredSteps.length,
     toolCallsLength: message.toolCalls?.length,
@@ -235,9 +292,8 @@ export const ResponseContainer: React.FC<ResponseContainerProps> = ({
       ) : (
         <div className="flex flex-col">
           <div className="whitespace-pre-wrap prose prose-sm max-w-none">
-            {message.content && message.content.includes('**') 
-              ? formatMarkdown(message.content)
-              : message.content}
+            {renderContent(message.content)}
+            {isStreaming && <StreamingIndicator />}
           </div>
           
           {showSteps && (

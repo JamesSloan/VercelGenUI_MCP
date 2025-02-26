@@ -17,14 +17,37 @@ export interface SystemData {
 export type SystemResult = ToolResult<SystemData>;
 
 const formatSystemResult = (data: SystemData, info_type: 'time' | 'location' | 'all'): string => {
-  const parts = [];
+  // Format system info as HTML for better display
+  const timeHtml = `
+    <div class="flex items-center mb-2">
+      <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span class="font-medium">Current Time:</span>
+      <span class="ml-2">${data.time.localTime}</span>
+    </div>
+  `;
+  
+  const locationHtml = `
+    <div class="flex items-center">
+      <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+      <span class="font-medium">Timezone:</span>
+      <span class="ml-2">${data.location.timezone}</span>
+    </div>
+  `;
+  
+  let content = '';
   if (info_type === 'all' || info_type === 'time') {
-    parts.push(`**Current Time**: ${data.time.localTime}`);
+    content += timeHtml;
   }
   if (info_type === 'all' || info_type === 'location') {
-    parts.push(`**Timezone**: ${data.location.timezone}`);
+    content += locationHtml;
   }
-  return parts.join('\n');
+  
+  return `<div class="system-info p-3 bg-gray-50 rounded-lg border border-gray-200">${content}</div>`;
 };
 
 export const systemTool = tool({
