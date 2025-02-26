@@ -54,6 +54,51 @@ const StepIcon = ({ type }: { type: StepCall['type'] }) => {
   );
 };
 
+// Helper function to format markdown-like content
+const formatMarkdown = (content: string) => {
+  if (!content) return null;
+  
+  // Replace **text** with bold
+  const boldFormatted = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Replace links with anchor tags
+  const linkFormatted = boldFormatted.replace(
+    /\[(.*?)\]\((https?:\/\/[^\s]+)\)/g, 
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+  );
+  
+  // Format search results better
+  let formattedContent = linkFormatted;
+  if (content.includes('Found') && content.includes('results for')) {
+    formattedContent = formattedContent.replace(
+      /(Found \d+ results for ".*?":)([\s\S]*)/,
+      (match, header, results) => {
+        const formattedResults = results.replace(
+          /(\d+\.\s+)(.*?)(\s+Link:\s+)(https?:\/\/[^\s]+)/g,
+          '<div class="mt-2 p-2 bg-white rounded-md border border-gray-100">$1<strong>$2</strong><br/><a href="$4" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">$4</a></div>'
+        );
+        return `<div class="font-medium mb-2">${header}</div>${formattedResults}`;
+      }
+    );
+  }
+  
+  // Format tables better
+  if (content.includes('|') && content.includes('\n|')) {
+    formattedContent = formattedContent.replace(
+      /(\|.*\|\n\|[-\s|]*\|)([\s\S]*?)(\n\n|$)/g,
+      (match, header, rows) => {
+        const tableHeader = header.replace(/\|/g, '<td class="border px-4 py-2 bg-gray-100 font-medium">').replace(/\n/g, '</td></tr>\n<tr>');
+        const tableRows = rows.replace(/\|/g, '<td class="border px-4 py-2">').replace(/\n/g, '</td></tr>\n<tr>');
+        return `<div class="overflow-x-auto mt-2 mb-4"><table class="min-w-full border-collapse border border-gray-300 rounded-md"><tr>${tableHeader}</td></tr><tr>${tableRows}</td></tr></table></div>`;
+      }
+    );
+  }
+  
+  return (
+    <div dangerouslySetInnerHTML={{ __html: formattedContent }} />
+  );
+};
+
 const StepsList = ({ message }: { message: EnhancedMessage }) => {
   // Convert legacy toolCalls to new steps format if needed
   const steps: StepCall[] = message.steps || (message.toolCalls?.map(tool => ({
@@ -77,11 +122,11 @@ const StepsList = ({ message }: { message: EnhancedMessage }) => {
     return null;
   }
   
-  // Default to expanded for better visibility
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  // Default to collapsed
+  const [isCollapsed, setIsCollapsed] = React.useState(true);
   
   return (
-    <div className="mt-4 mb-4 text-sm border border-gray-200 rounded-md bg-white p-2">
+    <div className="mt-4 text-sm border border-gray-200 rounded-md bg-white p-2">
       <div 
         className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -134,7 +179,9 @@ const StepsList = ({ message }: { message: EnhancedMessage }) => {
                 )}
                 {step.summary && (
                   <div className="text-sm text-gray-700 mt-2 bg-white p-2 rounded border border-gray-100">
-                    {step.summary}
+                    {typeof step.summary === 'string' && step.summary.includes('**') 
+                      ? formatMarkdown(step.summary)
+                      : step.summary}
                   </div>
                 )}
                 {step.result && !step.summary && (
@@ -156,14 +203,18 @@ export const ResponseContainer: React.FC<ResponseContainerProps> = ({
   isLoading
 }) => {
   const isThinking = isLoading && (!message.content || message.state === 'thinking');
-  const showSteps = (message.steps?.length ?? 0) > 0 || (message.toolCalls?.length ?? 0) > 0;
+  
+  // Filter out LLM steps from the steps display
+  // TODO: Add a proper LLM call tool in the future
+  const filteredSteps = message.steps?.filter(step => step.type !== 'llm') || [];
+  const showSteps = filteredSteps.length > 0 || (message.toolCalls?.length ?? 0) > 0;
 
   console.log('ResponseContainer render:', {
     messageId: message.id,
     isLoading,
     isThinking,
     showSteps,
-    stepsLength: message.steps?.length,
+    stepsLength: filteredSteps.length,
     toolCallsLength: message.toolCalls?.length,
     messageState: message.state,
     messageContent: message.content?.substring(0, 50)
@@ -172,23 +223,28 @@ export const ResponseContainer: React.FC<ResponseContainerProps> = ({
   React.useEffect(() => {
     console.log('ResponseContainer mounted/updated with steps:', {
       messageId: message.id,
-      stepsLength: message.steps?.length,
-      steps: message.steps
+      stepsLength: filteredSteps.length,
+      steps: filteredSteps
     });
   }, [message.id, message.steps]);
 
   return (
-    <div className="rounded-lg px-4 py-3 bg-gray-100 text-gray-800 shadow-sm">
+    <div className="rounded-lg px-4 py-3 bg-white text-gray-800 shadow-sm border border-gray-200">
       {isThinking ? (
         <ThinkingIndicator />
       ) : (
         <div className="flex flex-col">
+          <div className="whitespace-pre-wrap prose prose-sm max-w-none">
+            {message.content && message.content.includes('**') 
+              ? formatMarkdown(message.content)
+              : message.content}
+          </div>
+          
           {showSteps && (
             <div className="w-full">
-              <StepsList message={message} />
+              <StepsList message={{...message, steps: filteredSteps}} />
             </div>
           )}
-          <div className="whitespace-pre-wrap">{message.content}</div>
         </div>
       )}
     </div>

@@ -111,7 +111,7 @@ export default function Home() {
         updateAssistantMessage(assistantMessage.id, {
           steps: currentStepsRef.current.map(step => ({
             ...step,
-            status: 'complete'
+            status: step.status || 'complete'
           })),
           state: 'final'
         });
@@ -197,7 +197,7 @@ export default function Home() {
         )}
 
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 rounded-lg border border-gray-200 bg-white">
+        <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 rounded-lg border border-gray-200 bg-gray-100">
           {conversation.length === 0 && (
             <div className="text-center text-gray-500 py-20">
               Start a conversation by sending a message below.

@@ -144,6 +144,8 @@ export async function continueConversation(history: Message[]) {
         }
         
         if (stepContent) {
+          // For tool results, we want to show them in the steps
+          // For LLM text, we want to show it as the main content
           const contentUpdate = { 
             content: stepContent,
             isToolResponse: step.toolResults?.length > 0,
@@ -168,9 +170,13 @@ export async function continueConversation(history: Message[]) {
     }
 
     // Send final update with all steps
+    // Make sure the final content is the LLM's final response, not the accumulated content
+    const finalLlmStep = currentSteps.find(step => step.type === 'llm');
+    const finalContent = finalLlmStep?.result || accumulatedContent;
+    
     stream.update(JSON.stringify({
       type: 'content-update',
-      content: accumulatedContent,
+      content: finalContent,
       steps: currentSteps,
       isFinal: true
     }));
