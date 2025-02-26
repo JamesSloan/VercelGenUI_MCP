@@ -1,6 +1,6 @@
 # MCP + Vercel AI SDK UI Integration
 
-A powerful integration combining the Model Context Protocol (MCP) with Vercel's AI SDK UI to build flexible, interactive AI applications.
+A proof of concept integration combining the Model Context Protocol (MCP) with Vercel's AI SDK UI to build flexible, interactive agentic applications.
 
 ## Overview
 
