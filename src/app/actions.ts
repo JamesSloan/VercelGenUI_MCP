@@ -7,6 +7,16 @@ import { weatherTool } from '../lib/mcp/tools/weather';
 import { searchTool } from '../lib/mcp/tools/search';
 import { systemTool } from '../lib/mcp/tools/system';
 
+// TODO: Chat History Management
+// 1. Add functionality to save conversations to a database (e.g., Supabase, Firebase, or local storage)
+// 2. Implement methods to:
+//    - Create a new chat
+//    - List existing chats
+//    - Load a specific chat by ID
+//    - Delete chats
+// 3. Add UI components for chat history navigation
+// 4. Consider adding chat titles/summaries generated from the first few messages
+
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -33,8 +43,9 @@ ${toolDescriptions}
 
 When a user's request matches a tool's purpose, use that tool to provide accurate information.
 If they don't provide enough information for the tool to work, use the other tools or ask for more details.
-For example if they as what the weather is, assume they are asking for the weather in their current location.
-Format your responses in a clear and concise way.
+For example if they ask what the weather is, assume they are asking for the weather in their current location.
+
+Format your responses in a clear and concise way. Feel free to use emojis where appropriate to make your responses more engaging.
 You don't have to use the tools if you don't need to.`;
 };
 
@@ -147,7 +158,7 @@ export async function continueConversation(history: Message[]) {
           stepContent = step.toolResults
             .map(result => result.result?.message)
             .filter(Boolean)
-            .join('\n');
+            .join('\n\n'); // Add extra spacing between multiple tool results
         }
         
         if (stepContent) {

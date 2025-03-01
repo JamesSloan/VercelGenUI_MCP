@@ -14,20 +14,20 @@ export type SearchResult = ToolResult<SearchData>;
 
 const formatSearchResult = (data: SearchData, query: string): string => {
   if (data.length === 0) {
-    return `No results found for "${query}"`;
+    return `No results found for "${query}" 🔍`;
   }
   
   // Format results as HTML for better display
   const formattedResults = data.map((item, index) => 
     `<div class="search-result p-2 mb-2 bg-white rounded-md border border-gray-100">
-      <div class="font-medium">${index + 1}. ${item.title}</div>
+      <div class="font-medium">🔍 ${index + 1}. ${item.title}</div>
       <div class="text-sm">${item.snippet}</div>
-      ${item.link ? `<a href="${item.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">${item.link}</a>` : ''}
+      ${item.link ? `<a href="${item.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">🔗 ${item.link}</a>` : ''}
     </div>`
   ).join('');
   
   return `<div class="search-results">
-    <div class="font-medium mb-2">Found ${data.length} results for "${query}":</div>
+    <div class="font-medium mb-2">🔎 Found ${data.length} results for "${query}":</div>
     ${formattedResults}
   </div>`;
 };

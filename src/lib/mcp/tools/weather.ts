@@ -13,14 +13,37 @@ export interface WeatherData {
 export type WeatherResult = ToolResult<WeatherData>;
 
 const formatWeatherResult = (data: WeatherData): string => {
+  // Get weather emoji based on conditions
+  const getWeatherEmoji = (condition: string) => {
+    const lowerCondition = condition.toLowerCase();
+    if (lowerCondition.includes('sun') || lowerCondition.includes('clear')) {
+      return '☀️';  // sun
+    } else if (lowerCondition.includes('cloud') && lowerCondition.includes('sun')) {
+      return '⛅';  // sun behind cloud
+    } else if (lowerCondition.includes('cloud')) {
+      return '☁️';  // cloud
+    } else if (lowerCondition.includes('rain')) {
+      return '🌧️';  // rain
+    } else if (lowerCondition.includes('snow')) {
+      return '❄️';  // snowflake
+    } else if (lowerCondition.includes('thunder') || lowerCondition.includes('lightning')) {
+      return '⚡';  // lightning
+    } else if (lowerCondition.includes('fog') || lowerCondition.includes('mist')) {
+      return '🌫️';  // fog
+    } else {
+      return '🌡️';  // thermometer
+    }
+  };
+
   // Format weather result as HTML for better display
   return `<div class="weather-result p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-    <div class="font-medium text-lg mb-1">Weather in ${data.location}</div>
-    <div class="flex items-center">
-      <span class="text-2xl font-bold mr-2">${data.temperature}°${data.units === 'celsius' ? 'C' : 'F'}</span>
+    <div class="font-medium text-lg mb-2">Weather in ${data.location}</div>
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-2xl">${getWeatherEmoji(data.conditions)}</span>
+      <span class="text-2xl font-bold">${data.temperature}°${data.units === 'celsius' ? 'C' : 'F'}</span>
       <span class="text-blue-700 capitalize">${data.conditions}</span>
     </div>
-    <div class="text-xs text-gray-500 mt-1">Updated: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+    <div class="text-xs text-gray-500 mt-2">Updated: ${new Date(data.timestamp).toLocaleTimeString()}</div>
   </div>`;
 };
 

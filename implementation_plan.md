@@ -299,3 +299,37 @@ Each of these components should be:
 - Reusable and configurable
 - Well-documented
 - Performance optimized 
+
+## Current TODOs
+
+### Frontend UI
+1. Chat History Management
+   - Add functionality to save conversations to a database (e.g., Supabase, Firebase, or local storage)
+   - Implement methods to:
+     - Create a new chat
+     - List existing chats
+     - Load a specific chat by ID
+     - Delete chats
+   - Add UI components for chat history navigation
+   - Consider adding chat titles/summaries generated from the first few messages
+
+2. Response Container Improvements
+   - Add a streaming response indicator that shows when content is being streamed
+   - Add a proper LLM call tool in the future for better tracking of LLM interactions
+
+3. UI Components
+   - Add ability to start a new chat and select existing ones in the page UI
+
+### Backend & API
+1. Streaming Improvements
+   - Improve streaming responses by sending incremental updates for better typing effect and user experience
+   - Consider formatting the final response as HTML directly from the server to avoid client-side markdown conversion
+
+2. MCP Client Implementation
+   - Implement actual tool execution logic
+   - Implement connection validation
+
+### Testing
+1. LLM Integration Tests
+   - Implement actual test once we have the LLM integration middleware
+   - Implement actual streaming test 

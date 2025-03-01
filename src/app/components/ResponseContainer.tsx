@@ -117,8 +117,9 @@ const renderContent = (content: string) => {
     if (content.startsWith('{') && content.endsWith('}')) {
       const parsed = JSON.parse(content);
       // If it has a message property that looks like HTML, render that
-      if (parsed.message && typeof parsed.message === 'string' && parsed.message.includes('<')) {
-        return <div dangerouslySetInnerHTML={{ __html: parsed.message }} />;
+      if (parsed.message && typeof parsed.message === 'string' && 
+          (parsed.message.includes('<') || parsed.message.includes('&lt;'))) {
+        return <div dangerouslySetInnerHTML={{ __html: parsed.message }} className="html-content" />;
       }
       // Otherwise just stringify it nicely
       return <pre className="text-xs overflow-auto">{JSON.stringify(parsed, null, 2)}</pre>;
@@ -128,11 +129,19 @@ const renderContent = (content: string) => {
   }
   
   // Check if content appears to be HTML
-  const containsHtml = /<[a-z][\s\S]*>/i.test(content);
+  const containsHtml = /<[a-z][\s\S]*>/i.test(content) || 
+                      content.includes('&lt;') || 
+                      content.includes('<svg') || 
+                      content.includes('<div');
   
   // If it contains HTML, render it directly
   if (containsHtml) {
-    return <div dangerouslySetInnerHTML={{ __html: content }} className="html-content" />;
+    // Ensure SVG tags are properly rendered
+    let processedContent = content;
+    if (content.includes('&lt;svg')) {
+      processedContent = content.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    }
+    return <div dangerouslySetInnerHTML={{ __html: processedContent }} className="html-content" />;
   }
   
   // If it contains markdown-style formatting, use the formatter
@@ -233,13 +242,13 @@ const StepsList = ({ message }: { message: EnhancedMessage }) => {
                 {step.result && !step.summary && (
                   <div className={`text-xs text-gray-600 mt-1 p-2 rounded overflow-auto ${
                     typeof step.result === 'string' && 
-                    (step.result.includes('<div') || step.result.includes('<span'))
+                    (step.result.includes('<div') || step.result.includes('<span') || step.result.includes('<svg'))
                       ? 'bg-white' 
                       : 'bg-gray-50 font-mono'
                   }`}>
                     {typeof step.result === 'string' 
                       ? (step.result.startsWith('{') && step.result.endsWith('}')
-                          ? step.result 
+                          ? renderContent(step.result)
                           : renderContent(step.result))
                       : JSON.stringify(step.result, null, 2)}
                   </div>

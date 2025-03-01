@@ -177,12 +177,15 @@ export default function Home() {
           <h1 className="text-4xl font-bold text-center text-gray-800">
             AI Chat Assistant
           </h1>
-          <button 
-            onClick={() => setDebugMode(!debugMode)} 
-            className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-          >
-            {debugMode ? 'Hide Debug' : 'Show Debug'}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* TODO: Add chat history management - ability to start a new chat and select existing ones */}
+            <button 
+              onClick={() => setDebugMode(!debugMode)} 
+              className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              {debugMode ? 'Hide Debug' : 'Show Debug'}
+            </button>
+          </div>
         </div>
 
         {debugMode && (
@@ -225,6 +228,24 @@ export default function Home() {
               </div>
             </div>
           ))}
+          
+          {/* Show loading indicator in the message area when waiting for first response */}
+          {isLoading && !conversation.some(msg => msg.role === 'assistant' && msg.state === 'thinking') && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%]">
+                <div className="rounded-lg px-4 py-3 bg-white text-gray-800 shadow-sm border border-gray-200">
+                  <div className="flex items-center space-x-2 text-gray-500">
+                    <span></span>
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Form */}
@@ -243,14 +264,13 @@ export default function Home() {
             }}
             placeholder="Type a message..."
             className="flex-1 rounded-lg border border-gray-300 p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            disabled={isLoading}
           />
           <button
             onClick={handleSubmit}
-            disabled={isLoading || !input.trim()}
+            disabled={!input.trim()}
             className="bg-blue-500 text-white px-6 py-4 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Thinking...' : 'Send Message'}
+            Send Message
           </button>
         </div>
       </div>
